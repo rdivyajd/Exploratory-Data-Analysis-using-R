@@ -1,0 +1,356 @@
+---
+title: "Final Project - Team America"
+author: "Divya Rajendran, Ethan Violette, Pramod Duvvuri, Wenjuan Sang"
+date: "13 April 2018"
+output:
+  pdf_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F, 
+                      cache = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+devtools::install_github("dkahle/ggmap")
+devtools::install_github("hadley/ggplot2")
+library(dplyr)
+library(ggplot2)
+library(broom)
+#library(GGally)
+library(knitr)
+library(ggmap)
+library(htmlwidgets)
+library(MASS)
+library(gridExtra)
+```
+
+# Introduction and Statement of Goals
+
+Are storms in the Tropics of the Americas increasing? With hurricanes staying at the forefront of the news over the past couple of years, the idea of an increase in number of dangerous storms is fairly frightening. We aim to utilize past data of tropical and subtropical storms to answer this question, as well as see the trends in storm frequency for each category of storm. For our choice of data set, we utilized the Department of Homeland Security's Storm Tracking data$^1$. 
+
+# Data Description
+
+The data contains 59,228 objects of storm instances, with simple features such as day/month/year of the storm, basin of origination (either the Northern Atlantic or the Eastern Pacific), Wind Speed (in knots), Pressure, and Category of Storm. Location data, as in latitude and longitude, was also included, but because of the spherical nature of the globe (apologies for the contraversial statement), this information is extremely difficult to interpret in the context of a model, and beyond our expertise. We will then instead just use latitude and longitude for nice visual plots. 
+
+```{r echo = FALSE}
+historical_data <- read.csv("C:\\Users\\Divya\\Desktop\\IU Classes\\Spring-2018\\EDA\\Assignments & Homeworks\\Final_Project\\Historical_Tropical_Storm_Tracks.csv", header = TRUE)
+# historical_data <- read.csv("~/Downloads/Historical_Tropical_Storm_Tracks.csv", header = TRUE)
+historical_data$CAT <- factor(historical_data$CAT, labels = c("Cyclone", 
+                                                              "H1",
+                                                              "H2",
+                                                              "H3",
+                                                              "H4",
+                                                              "H5",
+                                                              "Others",
+                                                              "SubTrop Depression",
+                                                              "SubTrop Storm",
+                                                              "Depression",
+                                                              "Storm",
+                                                              "Tropical Wave"))
+```
+```{r}
+# Summary of the data set
+#summary(historical_data)
+```
+
+When we check the summary of our Historical storm data, we are interested in descriptive fields like YEAR, MONTH, DAY, WIND_KTS, PRESSURE, CAT, LAT, LONG.
+
+We see that the storms in the data are divided into two regions 1. Eastern Pacific and 2. North Atlantic and that the data ranges for the years 1851 to 2008. Unique storm names were given from the year 1950, and so therefore we are only considering the data from 1950-onwards in our project.
+
+We transformed latitude and longitude unique pairs of data to get 51 unique locations to understand how storms vary in each of these locations.
+
+```{r warning = FALSE}
+historical_data$loc_grp <- group_indices(historical_data, LAT, LONG)
+historical_data$loc_grpID <- cut(historical_data$loc_grp, 
+                                 seq(min(historical_data$loc_grp), 
+                                     max(historical_data$loc_grp),1030.5), 
+                                 labels = 1:50)
+
+storm.data <- subset(historical_data, YEAR >= 1950, 
+                     select = c("YEAR", "MONTH", "DAY", "AD_TIME", "BTID", 
+                                "NAME", "LAT", "LONG", "WIND_KTS", "PRESSURE", 
+                                "CAT", "BASIN", "Shape_Leng", "loc_grpID"))
+unique_storms_loc <- with(storm.data, 
+                      aggregate(cbind(NAME) ~ YEAR + BASIN + loc_grpID, 
+                                FUN=function(x){length(unique(x))}))
+summary(unique_storms_loc)
+
+ggplot(unique_storms_loc, aes(x = YEAR, y = NAME, color=BASIN)) + geom_point() + 
+  geom_smooth(method = "loess") +
+  facet_grid(~cut(as.numeric(loc_grpID), c(0, 20, 30, 51))) +
+  ylim(0,15) + 
+  ggtitle("Number of unique storms per year, faceted by location group and colored by basin") +
+  ylab("Frequency of storm") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+We found that the frequency of storms in Basin "Easter Pacific" increased for the locations in 1-20 much greater in number than the increase in regions 20-30 and when we see the storms frequency in locations between 30-51, the frequency is significantly less. The increase in number of storms in locations between 0-30 is observed from 1950-1980 post which the frequency decreases. This decrease can be further analysed by looking into the type of storms at each groups of these locations.
+
+The same in opposite sense can be observed for the North Atlantic Basin, where the storms decreased during the years 1950-1980 and increased considerably from 1980, which can also be studied by looking into the different kinds of storms each of these basins had.
+
+Then we tried to analyze the relationship between BASIN instead of the locations.
+```{r echo = FALSE}
+# summary(historical_data$loc_grpID)
+# length(unique(historical_data$loc_grpID))
+
+# considering descriptive fields:
+storm.data <- subset(historical_data, YEAR >= 1950, 
+                     select = c("YEAR", "MONTH", "DAY", "AD_TIME", "BTID", 
+                                "NAME", "LAT", "LONG", "WIND_KTS", "PRESSURE", 
+                                "CAT", "BASIN", "Shape_Leng", "loc_grpID"))
+unique_storms <- with(storm.data, 
+                      aggregate(cbind(NAME) ~ YEAR + BASIN, 
+                                FUN=function(x){length(unique(x))}))
+summary(unique_storms)
+```
+
+# 1. A bivariate relationship between number of unique storms per year colored by BASIN
+```{r}
+g123 <- ggplot(unique_storms, aes(x = YEAR, y = NAME)) + geom_point() + 
+  geom_smooth(method = "loess") +
+  ylim(0,15) + 
+  ggtitle("Number of unique storms per year") +
+  ylab("Frequency of storm") +
+  theme(plot.title = element_text(hjust = 0.5))
+
+#split by basin
+ggplot(unique_storms, aes(x = YEAR, y = NAME, color=BASIN)) + geom_point() + 
+  geom_smooth(method = "loess") +
+  ylim(0,15) + 
+  ggtitle("Number of unique storms per year colored by Basin") +
+  ylab("Frequency of storm") +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+We first used the loess method to plot data. We found that the patterns of storm frequency over the years are differentiated by their originations. Overall, we observe an increase in storm numbers in both basins.  
+It is interesting that, when we split the data by basin, the plot shows that storms increase really fast from 1950 to about 1980 in Eastern Pacific area, during which time, storm number almost has no change in North Atlantic area. After 1980, storm number slowly decreases in the Eastern Pacific area (almost a flat line). However, it increases quickly in North Atlantic area, suggesting that we might want to split the data by Basin.
+
+# 2. A trivariate relationship between Number of unique storms, category of the storm and the year.
+
+```{r}
+unique_storms_cat <- with(storm.data, 
+                      aggregate(cbind(NAME) ~ YEAR + CAT + BASIN, 
+                                FUN=function(x){length(unique(x))}))
+
+ggplot(unique_storms_cat, aes(x = YEAR, y = NAME, color = BASIN)) + 
+  geom_point() +
+  facet_wrap(~CAT) + 
+  ylim(0,15) + 
+  geom_smooth(method = "loess") + 
+  xlab("Frequency of storms") +
+  labs(title = "Frequency of storms per year split by category")
+```
+
+The numbers of each category of storms are highly varied. Some of the types, like tropical wave, only have few samples, while the others have fairly large samples. Depressions and Storms are constantly increasing over the years and the others do not have much change longitudinally.
+We see that there were huge number of TD and TS storms; with an averagely increasing trend for TD and TS storm categories, implying that storms of type TD and TS were more common over the years.
+
+To specify, Tropical Wave occurances are fewer in number, implying that either the identification of such storms was only possible from the year 1980 onwards, or the first recorded occurance is in year 1980. The same can be said of storms of the category Other, which observed a sudden increase through the years 2000-2008. The storms of category Subtropical Storm, H5, Subtropical Depression are less frequent in numbers ranging between 0-5 each of the years. The storms of category Cycle, H2, H3, H4 are very frequent in numbers ranging between 0-12 each of the years. Also, we see that the number of storms of categories: H1, Tropical Depression and Ttropical Storm have increased during the period 1985-1995.
+
+# 3. The relationship between number of unique storms in each year per location facetted by category.
+```{r warning=FALSE}
+unique_storms_category <- with(storm.data, 
+                      aggregate(cbind(NAME, loc_grpID) ~ YEAR + CAT, 
+                                FUN=function(x){length(unique(x))}))
+
+unique_storms_category1 <- subset(unique_storms_category, !(CAT %in% c('Others','Cyclone', 'Depression', "Storm", "SubTrop Storm", "Tropical Wave", "Others", "SubTrop Depression")))
+summary(unique_storms_category1)
+
+unique_storms_category2 <- subset(unique_storms_category, (CAT %in% c('Others','Cyclone', 'Depression', "Storm", "SubTrop Storm", "Tropical Wave", "Others", "SubTrop Depression")))
+summary(unique_storms_category2)
+
+c1 <- ggplot(unique_storms_category1, aes(x = YEAR, y = NAME, color = CAT)) + 
+  geom_point() + 
+  # facet_grid(~cut_number(loc_grpID, n=2)) + 
+  facet_grid(~cut(as.numeric(loc_grpID), c(0, 15, 51))) +
+  geom_smooth(method = "loess") + 
+  ylim(0,15) + 
+  xlab("Year") +
+  ylab("Storms") +
+  labs(title = "unique storm data per year faceted by location group, colored by Category")
+
+c2 <- ggplot(unique_storms_category2, aes(x = YEAR, y = NAME, color = CAT)) + 
+  geom_point() + 
+  # facet_grid(~cut_number(loc_grpID, n=4)) + 
+  facet_grid(~cut(as.numeric(loc_grpID), c(0, 20, 51))) +
+  geom_smooth(method = "loess") + 
+  # ylim(0,15) + 
+  xlab("Year") +
+  ylab("Storms") +
+  labs(title = "unique storm data per year faceted by location group, colored by Category")
+
+grid.arrange(c1, c2)
+
+
+
+# ggplot(unique_storms, aes(x = YEAR, y = NAME, color = CAT)) + 
+#   geom_point() + 
+#   # facet_grid(~cut_number(loc_grpID, n=2)) + 
+#   facet_grid(~cut(as.numeric(loc_grpID), c(0, 10, 20, 30, 51))) + 
+#   geom_smooth(method = "loess") + 
+#   xlab("Year") +
+#   ylab("Storms") +
+#   labs(title = "unique storm data per year faceted by location group, colored by Category")
+```
+From the above plot, we can see that there is a significant relationship between the number of storms and unique locations. However, since a location id was obtained by combinations of latitude and longitude, we cannot surely comment about the relationship, due to limitations regarding coordinates specified in the introduction. This also indicates the difficulty in coding the combinations of longitude and lattitude merely by data. In order to make the location variable more meaningful, we will plot them on maps.
+
+# 4. Relation between wind speed and pressure
+
+```{r fig.height=6}
+#hurricanes 
+df = historical_data %>% 
+  filter(PRESSURE > 0) %>%
+  filter(grepl("H", CAT)) %>%
+  group_by(CAT,YEAR,MONTH,DAY,LAT,LONG) %>%
+  summarise(MEAN_WIND_KTS = mean(WIND_KTS), MEAN_PRESSURE = mean(PRESSURE)) %>%
+  arrange(MEAN_WIND_KTS)
+df$CAT = factor(df$CAT)
+p = ggplot(df,aes(x=MEAN_WIND_KTS, y = MEAN_PRESSURE, color = CAT))
+q1 <- p + 
+  geom_jitter(alpha = 0.8, width = 1) +
+  scale_fill_brewer(direction = -1, palette = "Spectral") + 
+  scale_y_continuous(labels = scales::comma)+ 
+  theme(legend.position = 'right') + 
+  ggtitle("Wind KTS v. Hurricane Category") +
+  labs(y = "Mean Pressure", x = "Mean Windspeed (Knots)") +
+  guides(color = guide_legend(title = "Hurricane Category"))
+
+#non-hurricane storms
+df = historical_data %>% 
+  filter(PRESSURE > 0) %>%
+  filter(!grepl("H", CAT)) %>%
+  group_by(CAT,YEAR,MONTH,DAY,LAT,LONG) %>%
+  summarise(MEAN_WIND_KTS = mean(WIND_KTS), MEAN_PRESSURE = mean(PRESSURE)) %>%
+  arrange(MEAN_WIND_KTS)
+df$CAT = factor(df$CAT)
+aggWind <- as.data.frame(aggregate(df$MEAN_WIND_KTS, by = list(df$CAT), FUN = mean))
+p = ggplot(aggWind,aes(x=reorder(aggWind$Group.1, aggWind$x), y = x, fill = Group.1))
+q2 <- p + geom_col() +
+  labs(x = "Storm Category", y = "Windspeed", title = "Windspeed v. Storm Category") +
+  guides(fill = F) + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+grid.arrange(q1,q2)
+```
+
+As we can see from above graphs, the five hurricane types are categorized perfectly by their wind speed and pressure. From H1 to H5, the pressure goes down, but the wind speed goes up, which means that the it becomes stronger and is able to deal more damage and destruction. For the storms that are not hurricanes, we see that Subtropical Storms and Tropical Storms have the highest wind speed (and therefore are the most dangerous). Subtropical Depressions and Depressions have relatively lower wind speed, but have the potential to become storms in their own right. Cyclones, due to their ability to turn directly into hurricanes, correspondingly have relatively high wind speeds. Tropical Waves, though not very dangerous, have an average wind speed amongst the types of non-hurricane storms. These two plots give us a clear idea about the relationship between storm category and wind speed and pressure.
+
+# 5. Mapping the frequency of storms
+
+```{r}
+big_map <- get_googlemap(c(lon=-95, lat=30), zoom = 4, maptype = "terrain")
+```
+
+```{r fig.width=15, fig.height=15}
+df = historical_data %>% 
+  filter(grepl("H", CAT)) %>%
+  filter(YEAR > 1949)
+ggmap(big_map) + 
+  geom_density_2d(data = df, mapping = aes(x = LONG, y = LAT), size = 0.5) + 
+  stat_density2d(data = df, 
+    aes(x = LONG, y = LAT, fill = ..level.., alpha = ..level..), size = 0.1, 
+    bins = 20, geom = "polygon") + scale_fill_gradient(low = "green", high = "red", 
+    guide = FALSE) + scale_alpha(range = c(0.1, 0.5), guide = FALSE) + 
+  facet_wrap(~CAT) +
+  labs(title = "Frequency of Hurricanes after 1949")
+df = historical_data %>% 
+  filter(!grepl("H", CAT)) %>%
+  filter(YEAR > 1949)
+```
+
+We used the package ggmap to plot the frequency of storms based on their originations. The color represents the density of storms, for which the red areas form the most storms and the light green areas form the least. It is clear that most hurricanes are formed in Eastern Pacific area, except H5, the most dangerous category. H5 hurricanes are much more often seen in North Atlantic area, rather than Eastern Pacific area.
+
+```{r fig.width=15, fig.height=15}
+ggmap(big_map) + 
+  geom_density_2d(data = df, mapping = aes(x = LONG, y = LAT), size = 0.5) + 
+  stat_density2d(data = df, 
+    aes(x = LONG, y = LAT, fill = ..level.., alpha = ..level..), size = 0.1, 
+    bins = 20, geom = "polygon") + scale_fill_gradient(low = "green", high = "red", 
+    guide = FALSE) + scale_alpha(range = c(0.1, 0.5), guide = FALSE) + 
+  facet_wrap(~CAT) +
+  labs(title = "Frequency of Non-Hurricane Storms after 1949")
+```
+
+As for the non-hurricane storms, we note a relatively even dispersion of storm frequency between the North Atlantic Basin and the Eastern Pacific Basin; the lone exception is the Tropical Wave, whose frequency is concentrated solely in the North Atlantic. This introduces an interesting contrast between the non-hurricanes' even dispersion and the hurricanes' frequency dispersion shift from Eastern Pacific to Northern Atlantic, as the hurricanes get stronger.
+
+
+#5 Modeling time and storms
+
+```{r}
+model.data <- with(storm.data, 
+                   aggregate(cbind(NAME) ~ YEAR + CAT + BASIN, 
+                            FUN=function(x){length(unique(x))}))
+# loess model
+unique_storms.lm = loess(NAME ~ YEAR, data = model.data)
+unique_storms.lm.df = augment(unique_storms.lm)
+# summary(unique_storms.lm.df)
+
+# Residual Plot
+ggplot(unique_storms.lm.df, aes(x = .fitted, y = .resid)) + 
+  geom_point() + 
+  geom_smooth() +
+  labs(title = "Residuals v. Fitted Values, Loess Model",
+       x = "Fitted values", 
+       y = "Residuals")
+```
+
+First, we fitted a loess model to get a basic impression of storm number and year. The curve for the residuals just wiggles around 0, meaning that that our regression model specifies an adequate relationship between the outcome, storm number and the covariates, Year. 
+Above EDA suggests that there are potential factors can be added to the model.   
+When we thought more deeply about out data, we knew that the data might be treated as count variable, instead of a continous one. 
+
+```{r}
+glm1 <- glm(NAME ~ YEAR, data = model.data, family = poisson(link = "log"))
+summary(glm1)
+
+glm1.df = augment(glm1)
+            
+# Residual Plot
+ggplot(glm1.df, aes(x = .fitted, y = .resid)) + 
+  geom_point() + 
+  geom_smooth() +
+  labs(title = "Residuals v. Fitted Values, Poisson Model",
+       x = "Fitted values", 
+       y = "Residuals")
+```
+
+The curve for the residuals just wiggles around 0, meaning that that our regression model specifies an adequate relationship between the outcome, storm number and the covariates, Year. This supports our prediction that treating dependent variable as count variable fits the data. We can continue adding more covariates into the model. 
+
+```{r}
+#full model: count variable
+glm1 <- glm(NAME ~ YEAR + CAT + BASIN, data = model.data, family = poisson(link = "log"))
+summary(glm1)
+
+glm1.df = augment(glm1)
+            
+# Residual Plot
+ggplot(glm1.df, aes(x = .fitted, y = .resid)) + 
+  geom_point() + 
+  geom_smooth() +
+  labs(title = "Residuals v. Fitted Values, Poisson Model",
+       x = "Fitted values", 
+       y = "Residuals")
+```
+Almost all variables are significant in predicting the number of storms, suggesting that we have obtained correct information from the EDA procedure. As the time increases by one year, about 0.01 more storms will be formed. This is not very exciting with year as the unit, but if we consider it monthly or daily, the number of storm increase becomes more impressive. Compared with Eastern Pacific area, less storms are formed in North Atlantic area.
+The curve looks fine for the full model with three covariates, but the residuals of the model show a bit of a pattern , especially in the bottom left area, which could mean that our model has limitations in its predictive accuracy. 
+
+```{r}
+## calculate and store predicted values
+model.data$phat <- predict(glm1, type="response")
+
+## order by program and then by math
+model.data <- model.data[with(model.data, order(NAME, YEAR)), ]
+
+## create the plot
+ggplot(model.data, aes(x = YEAR, y = phat, colour = CAT)) +
+  geom_point(aes(y = NAME), alpha=.5, position=position_jitter(h=.2)) +
+  geom_smooth()+
+  labs(x = "YEAR", y = "Expected number of storms")
+```
+
+Above graph shows the predicted number of storms. The graph indicates that the most storms are predicted for category Storm, especially if the storms are formed in more recent years. The lowest number of predicted awards is for those H5 hurricanes (excluding Tropical Wave that has few samples). The graph overlays the lines of expected values onto the actual points, although a small amount of random noise was added vertically to lessen overplotting.
+
+# Conclusions and Limitations
+
+It appears that the number of storms is indeed increasing at a small rate as time goes on; this can be predicted with some degree of accuracy with features such as Basin of Origination, Category of Storm, and (of course) Year. Though we had sufficient tools at our disposal to conclude this using a fitted Poisson Model, we're limited in our predictive accuracy due to lack of additional features. Given more time, we would have merged this dataset with another that contained information about weather, number of man-made influencers of climate change, and other useful predictors, over time. 
+
+# Sources
+
+$^1$ https://data.world/dhs/historical-tropical-storm
