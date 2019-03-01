@@ -18,6 +18,11 @@ install.packages(gridExtra)
 devtools::install_github("dkahle/ggmap")
 devtools::install_github("hadley/ggplot2")
 ```
+### Code
+File: Project_Code.Rmd
+
+### Project Report:
+File: EDA_Report.pdf
 
 ## Goal / Aim
 
