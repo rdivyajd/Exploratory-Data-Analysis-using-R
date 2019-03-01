@@ -4,7 +4,8 @@ EDA of Historical Storm Data of North America
 | Authors: Divya Rajendran, Ethan Violette, Pramod Duvvuri, Wenjuan Sang
 
 ## Pre-Requisites/Requirements
-The project can be run using RStudio, and we assume the users have access to the application in their computers.
+R is needed to run the code for this project. The project can be run using RStudio, which is available at [rstudio website].
+
 ### Required Packages
 ```{r}
 install.packages(knitr)
@@ -50,11 +51,12 @@ We followed the below steps in our EDA
 
 ## Conclusions and Limitations
 
-* It appears that the number of storms is indeed increasing at a small rate (0.08%) as time goes on; this can be predicted with some degree of accuracy with features such as Basin of Origination, Category of Storm, and (of course) Year. 
+* It appears that the number of storms is indeed increasing at a small rate (0.08%) each year; this can be predicted with a certain degree of accuracy obtained using features Basin of Origination, Category of Storm, and (of course) Year. 
 
 * Though we had sufficient tools at our disposal to conclude this using a fitted Poisson Model, we’re limited in our predictive accuracy due to lack of additional features. 
 
 * Given more time, we would have merged this dataset with another that contained information about weather, number of man-made influencers of climate change, and other useful predictors, over time.
 
 
+[rstudio website]: https://www.rstudio.com/products/rstudio/download/
 [here]: https://data.world/dhs/historical-tropical-storm
